@@ -1,5 +1,7 @@
 # NullFace: Training-Free Localized Face Anonymization
 
+[arXiv](http://arxiv.org/abs/2503.08478)
+
 ![](assets/teaser.svg)
 
 Our method obscures identity while preserving attributes such as gaze, expressions, and head pose (in contrast to [Stable Diffusion Inpainting](https://github.com/CompVis/latent-diffusion)) and enables selective anonymization of specific facial regions.
