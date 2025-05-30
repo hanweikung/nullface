@@ -6,6 +6,20 @@
 
 Our method obscures identity while preserving attributes such as gaze, expressions, and head pose (in contrast to [Stable Diffusion Inpainting](https://github.com/CompVis/latent-diffusion)) and enables selective anonymization of specific facial regions.
 
+## Environment setup
+
+To install all required dependencies, create a new conda environment using the provided `environment.yml` file:
+
+```sh
+conda env create -f environment.yml
+```
+
+Then activate the environment:
+
+```sh
+conda activate nullface
+```
+
 ## Test set
 
 For the quantitative comparisons against baseline methods in our paper, we selected:
@@ -18,4 +32,4 @@ For each subject, we created corresponding segmentation masks to selectively con
 
 The list of selected test subjects and their corresponding segmentation masks are available for download at the [Hugging Face Hub](https://huggingface.co/datasets/hkung/nullface-test-set).
 
-## Code coming soon 
+## Code coming soon
