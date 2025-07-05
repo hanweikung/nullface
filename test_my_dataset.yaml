@@ -1,6 +1,0 @@
--
-  image: "my_dataset/images/00080.png"
-  mask_image: "my_dataset/masks/00080/eyes_and_mouth.png"
-  source_prompt: null
-  target_prompts:
-  - null

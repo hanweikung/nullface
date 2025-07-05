@@ -6,13 +6,12 @@ from diffusers import DDIMScheduler, StableDiffusionInpaintPipeline
 from diffusers.utils import load_image
 from PIL import Image
 from torch import autocast, inference_mode
-from tqdm import tqdm
 
 from ddm_inversion.inversion_utils import (
     inversion_forward_process,
     inversion_reverse_process,
 )
-from ddm_inversion.utils import dataset_from_yaml, image_grid
+from ddm_inversion.utils import image_grid
 from prompt_to_prompt.ptp_classes import load_512
 from utils.face_embedding import FaceEmbeddingExtractor
 
@@ -30,10 +29,15 @@ if __name__ == "__main__":
         default="~/.insightface",
         help="Path to the InsightFace model",
     )
+    parser.add_argument("--image_path", type=str, default="my_dataset/images/00080.png")
+    parser.add_argument(
+        "--mask_image_path",
+        type=str,
+        default="my_dataset/masks/00080/eyes_and_mouth.png",
+    )
     parser.add_argument("--device_num", type=int, default=0)
     parser.add_argument("--guidance_scale", type=float, default=10.0)
     parser.add_argument("--num_diffusion_steps", type=int, default=100)
-    parser.add_argument("--dataset_yaml", default="test_my_dataset.yaml")
     parser.add_argument("--eta", type=float, default=1)
     parser.add_argument("--skip", type=int, default=70)
     parser.add_argument(
@@ -48,8 +52,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--id_emb_scale",
         type=float,
-        default=-1.0,
-        help="Scaling factor for the identity embedding, with a default value of -1.0 for anonymization purposes.",
+        default=1.0,
+        help="Scaling factor for the identity embedding.",
     )
     parser.add_argument(
         "--output_file",
@@ -75,18 +79,19 @@ if __name__ == "__main__":
     parser.add_argument(
         "--mask_delay_steps",
         type=int,
-        default=0,
+        default=10,
         help="The number of diffusion steps to wait before applying the mask.",
     )
 
     args = parser.parse_args()
-    full_data = dataset_from_yaml(args.dataset_yaml)
+    image_path = args.image_path
+    mask_image_path = args.mask_image_path
     sd_model_path = args.sd_model_path
     device = f"cuda:{args.device_num}"
     guidance_scale = args.guidance_scale
     id_emb_scale = args.id_emb_scale
     eta = args.eta  # = 1
-    skip_zs = [args.skip]
+    skip = args.skip
 
     # load/reload model:
     ldm_stable = StableDiffusionInpaintPipeline.from_pretrained(
@@ -111,94 +116,89 @@ if __name__ == "__main__":
 
     # Open the output file in write mode
     with open(args.output_file, "w") as f:
-        for i in tqdm(range(len(full_data))):
-            current_image_data = full_data[i]
-            image_path = current_image_data["image"]
-            mask_image_path = current_image_data["mask_image"]
+        # Extract embedding for the largest face
+        try:
+            id_embs_inv, id_embs = extractor.get_face_embeddings(
+                image_path=image_path,
+                is_opposite=True,
+                seed=args.seed,
+                scale_factor=args.id_emb_scale,
+                dtype=dtype,
+                device=device,
+            )
+        except ValueError as e:
+            # Write the filename to the text file
+            f.write(f"{e}\n")
+        else:
+            ldm_stable.scheduler = DDIMScheduler.from_config(
+                sd_model_path, subfolder="scheduler"
+            )
 
-            # Extract embedding for the largest face
-            try:
-                id_embs_inv, id_embs = extractor.get_face_embeddings(
-                    image_path=image_path,
-                    seed=args.seed,
-                    scale_factor=args.id_emb_scale,
-                    dtype=dtype,
-                    device=device,
-                )
-            except ValueError as e:
-                # Write the filename to the text file
-                f.write(f"{e}\n")
+            ldm_stable.scheduler.set_timesteps(args.num_diffusion_steps)
+
+            # load image
+            offsets = (0, 0, 0, 0)
+            x0 = load_512(image_path, *offsets, device).to(dtype=dtype)
+
+            # Check if the mask path exists. If it does, load the mask image.
+            # Otherwise, create a new black image with the same size as the image.
+            if mask_image_path and Path(mask_image_path).is_file():
+                mask_image = load_image(mask_image_path)
             else:
-                ldm_stable.scheduler = DDIMScheduler.from_config(
-                    sd_model_path, subfolder="scheduler"
+                print(f"Error: The file '{mask_image_path}' was not found.")
+                # width and height are the dimensions of the image
+                height, width = x0.shape[-2:]
+                # Create a new image with a white background
+                mask_image = Image.new("RGB", (width, height), "white")
+
+            # vae encode image
+            with autocast("cuda"), inference_mode():
+                w0 = (ldm_stable.vae.encode(x0).latent_dist.mode() * 0.18215).to(
+                    dtype=dtype
                 )
 
-                ldm_stable.scheduler.set_timesteps(args.num_diffusion_steps)
+            # find Zs and wts - forward process
+            wt, zs, wts = inversion_forward_process(
+                ldm_stable,
+                w0,
+                etas=eta,
+                prompt="",
+                cfg_scale=guidance_scale,
+                prog_bar=True,
+                num_inference_steps=args.num_diffusion_steps,
+                ip_adapter_image_embeds=[id_embs_inv],
+            )
 
-                # load image
-                offsets = (0, 0, 0, 0)
-                x0 = load_512(image_path, *offsets, device).to(dtype=dtype)
+            generator = torch.manual_seed(args.seed)
 
-                # Check if the mask path exists. If it does, load the mask image.
-                # Otherwise, create a new black image with the same size as the image.
-                if mask_image_path and Path(mask_image_path).is_file():
-                    mask_image = load_image(mask_image_path)
-                else:
-                    print(f"Error: The file '{mask_image_path}' was not found.")
-                    # width and height are the dimensions of the image
-                    height, width = x0.shape[-2:]
-                    # Create a new image with a white background
-                    mask_image = Image.new("RGB", (width, height), "white")
+            # reverse process (via Zs and wT)
+            w0, _ = inversion_reverse_process(
+                ldm_stable,
+                xT=wts[args.num_diffusion_steps - skip],
+                etas=eta,
+                prompts=[""],
+                cfg_scales=[guidance_scale],
+                prog_bar=True,
+                zs=zs[: (args.num_diffusion_steps - skip)],
+                controller=None,
+                ip_adapter_image_embeds=[id_embs],
+                init_image=x0,
+                mask_image=mask_image,
+                generator=generator,
+                mask_delay_steps=args.mask_delay_steps,
+            )
 
-                # vae encode image
-                with autocast("cuda"), inference_mode():
-                    w0 = (ldm_stable.vae.encode(x0).latent_dist.mode() * 0.18215).to(
-                        dtype=dtype
-                    )
+            # vae decode image
+            with autocast("cuda"), inference_mode():
+                x0_dec = ldm_stable.vae.decode(1 / 0.18215 * w0).sample
+            if x0_dec.dim() < 4:
+                x0_dec = x0_dec[None, :, :, :]
+            img = image_grid(x0_dec)
 
-                # find Zs and wts - forward process
-                wt, zs, wts = inversion_forward_process(
-                    ldm_stable,
-                    w0,
-                    etas=eta,
-                    prompt="",
-                    cfg_scale=guidance_scale,
-                    prog_bar=True,
-                    num_inference_steps=args.num_diffusion_steps,
-                    ip_adapter_image_embeds=[id_embs_inv],
-                )
+            # Replace dots with underscores.
+            # Format cfg to have at least 4 characters in total, including one digit after the decimal point, and pad it with leading zeros if necessary.
+            filename_wo_ext = f"{Path(image_path).stem}-cfg-{guidance_scale:04.1f}-skip-{skip}-delay-{args.mask_delay_steps}-id-{id_emb_scale}".replace(
+                ".", "_"
+            )
 
-                for skip in skip_zs:
-                    generator = torch.manual_seed(args.seed)
-
-                    # reverse process (via Zs and wT)
-                    w0, _ = inversion_reverse_process(
-                        ldm_stable,
-                        xT=wts[args.num_diffusion_steps - skip],
-                        etas=eta,
-                        prompts=[""],
-                        cfg_scales=[guidance_scale],
-                        prog_bar=True,
-                        zs=zs[: (args.num_diffusion_steps - skip)],
-                        controller=None,
-                        ip_adapter_image_embeds=[id_embs],
-                        init_image=x0,
-                        mask_image=mask_image,
-                        generator=generator,
-                        mask_delay_steps=args.mask_delay_steps,
-                    )
-
-                    # vae decode image
-                    with autocast("cuda"), inference_mode():
-                        x0_dec = ldm_stable.vae.decode(1 / 0.18215 * w0).sample
-                    if x0_dec.dim() < 4:
-                        x0_dec = x0_dec[None, :, :, :]
-                    img = image_grid(x0_dec)
-
-                    # Replace dots with underscores.
-                    # Format cfg to have at least 4 characters in total, including one digit after the decimal point, and pad it with leading zeros if necessary.
-                    filename_wo_ext = f"{Path(image_path).stem}-cfg-{guidance_scale:04.1f}-skip-{skip}-id-{id_emb_scale}".replace(
-                        ".", "_"
-                    )
-
-                    img.save(filename_wo_ext + ".png")
+            img.save(filename_wo_ext + ".png")
