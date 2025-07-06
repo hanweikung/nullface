@@ -22,6 +22,8 @@ conda activate nullface
 
 ## Usage
 
+We include a sample image from the [CelebA-HQ](https://github.com/tkarras/progressive_growing_of_gans) dataset in the `my_dataset` folder to demonstrate example usage. The hyperparameters specified below are the ones used in our experiments for comparison with baseline methods.
+
 ```python
 from anonymize_face import anonymize_face
 
