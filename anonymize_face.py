@@ -37,10 +37,10 @@ def anonymize_face(
     Anonymizes a facial image using Stable Diffusion and face embedding extraction.
 
     Args:
-        sd_model_path (str): Path to the Stable Diffusion 1.5 model.
-        insightface_model_path (str): Path to the InsightFace model.
         image_path (str): Path to the input image to be anonymized.
         mask_image_path (str): Path to the mask image. If not found, a white mask is used.
+        sd_model_path (str): Path to the Stable Diffusion 1.5 model.
+        insightface_model_path (str): Path to the InsightFace model.
         device_num (int): CUDA device number to use.
         guidance_scale (float): Guidance scale for diffusion.
         num_diffusion_steps (int): Number of diffusion steps.
@@ -48,14 +48,14 @@ def anonymize_face(
         skip (int): Number of steps to skip in the reverse process.
         ip_adapter_scale (float): Controls the amount of text or image conditioning.
         id_emb_scale (float): Scaling factor for the identity embedding.
-        output_file (str): Output text file to record images where faces could not be detected.
+        output_log_file (str): Output text file to record images where faces could not be detected.
         det_thresh (float): Threshold for face detection.
         det_size (int): Size for face detection model input.
         seed (int): Seed for reproducible inference.
         mask_delay_steps (int): Number of diffusion steps to wait before applying the mask.
 
     Returns:
-        str: Path to the anonymized image, or None if face not detected.
+        PIL.Image.Image or None: The anonymized image as a PIL Image, or None if a face is not detected.
     """
     device = f"cuda:{device_num}"
 
@@ -159,11 +159,4 @@ def anonymize_face(
             if x0_dec.dim() < 4:
                 x0_dec = x0_dec[None, :, :, :]
             img = image_grid(x0_dec)
-
-            filename_wo_ext = f"{Path(image_path).stem}-cfg-{guidance_scale:04.1f}-skip-{skip}-delay-{mask_delay_steps}-id-{id_emb_scale}".replace(
-                ".", "_"
-            )
-
-            output_img_path = filename_wo_ext + ".png"
-            img.save(output_img_path)
-            return output_img_path
+            return img

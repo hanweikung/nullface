@@ -1,6 +1,6 @@
 from anonymize_face import anonymize_face
 
-output_img_path = anonymize_face(
+output_img = anonymize_face(
     image_path="my_dataset/images/00080.png",
     mask_image_path="my_dataset/masks/00080/eyes_and_mouth.png",
     sd_model_path="stable-diffusion-v1-5/stable-diffusion-v1-5",
@@ -19,8 +19,10 @@ output_img_path = anonymize_face(
     mask_delay_steps=10,
 )
 
-if output_img_path:
-    print(f"Anonymized image saved to: {output_img_path}")
+if output_img:
+    output_path = "anonymized.png"
+    output_img.save(output_path)
+    print(f"Anonymized image saved to: {output_path}")
 else:
     print(
         "Face could not be detected. Please check the output log file for more details."
