@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NullFace: Training-Free Localized Face Anonymization</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,400;0,600;0,700;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=swap" rel="stylesheet" />
+
+  <!-- Academicons (for arXiv icon) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css" />
+
+  <style>
+    /* ── Reset & base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f8f7f4;
+      --surface: #ffffff;
+      --text: #2c2c2c;
+      --muted: #6b6b6b;
+      --accent: #1a5276;        /* deep navy */
+      --accent-light: #2e86c1;
+      --rule: #d6d0c8;
+      --tag-bg: #eaf2fb;
+      --tag-text: #1a5276;
+      --font-display: 'Source Serif 4', Georgia, serif;
+      --font-body: 'Noto Sans', sans-serif;
+    }
+
+    html {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 16px;
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      overflow-x: hidden;
+    }
+
+    /* ── Layout ── */
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ── Hero / Header ── */
+    .hero {
+      background: var(--surface);
+      border-bottom: 1px solid var(--rule);
+      padding: 56px 0 40px;
+      text-align: center;
+    }
+
+    .venue-badge {
+      display: inline-block;
+      font-family: var(--font-body);
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--accent);
+      background: var(--tag-bg);
+      border: 1px solid #aed6f1;
+      border-radius: 4px;
+      padding: 4px 12px;
+      margin-bottom: 20px;
+    }
+
+    .paper-title {
+      font-family: var(--font-display);
+      font-size: clamp(1.8rem, 4vw, 2.6rem);
+      font-weight: 700;
+      line-height: 1.2;
+      color: var(--text);
+      letter-spacing: -0.02em;
+      max-width: 820px;
+      margin: 0 auto 24px;
+    }
+
+    .authors {
+      font-size: 1rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .authors a {
+      color: var(--accent-light);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .authors a:hover { text-decoration: underline; }
+
+    .affiliations {
+      font-size: 0.875rem;
+      color: var(--muted);
+      margin-bottom: 28px;
+    }
+    .affiliations sup { font-size: 0.7rem; }
+
+    /* ── Link buttons ── */
+    .links {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-family: var(--font-body);
+      font-size: 0.875rem;
+      font-weight: 600;
+      padding: 8px 18px;
+      border-radius: 6px;
+      border: 1.5px solid var(--accent);
+      color: var(--accent);
+      background: transparent;
+      text-decoration: none;
+      transition: background 0.18s, color 0.18s, transform 0.15s;
+      cursor: pointer;
+    }
+    .btn:hover {
+      background: var(--accent);
+      color: #fff;
+      transform: translateY(-1px);
+    }
+    .btn:active { transform: translateY(0); }
+
+    .btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .btn .ai { font-size: 16px; line-height: 1; flex-shrink: 0; }
+
+    /* ── Teaser figure ── */
+    .teaser {
+      background: var(--surface);
+      padding: 40px 0 36px;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .teaser-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .teaser-group-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+      text-align: center;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--rule);
+      margin-bottom: 8px;
+    }
+
+    .teaser-cols {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      width: 100%;
+    }
+
+    .teaser-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .teaser-images {
+      display: flex;
+      gap: 6px;
+      width: 100%;
+    }
+
+    .teaser-images img {
+      flex: 1;
+      min-width: 0;
+      width: 0;
+      aspect-ratio: 1 / 1;
+      object-fit: cover;
+      border-radius: 4px;
+      border: 1px solid var(--rule);
+      display: block;
+    }
+
+    .teaser-caption {
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 12px;
+      line-height: 1.5;
+      max-width: 820px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .sub-labels {
+      display: flex;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .sub-labels span {
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-align: center;
+      flex: 1;
+    }
+
+    /* ── Section layout ── */
+    section {
+      padding: 52px 0;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    section:last-of-type { border-bottom: none; }
+
+    .section-title {
+      font-family: var(--font-display);
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 20px;
+      letter-spacing: -0.01em;
+    }
+
+    p {
+      font-size: 1rem;
+      color: #3a3a3a;
+      margin-bottom: 14px;
+      line-height: 1.7;
+    }
+    p:last-child { margin-bottom: 0; }
+
+    /* ── Figure + caption pattern ── */
+    .fig-wrap {
+      margin: 28px 0;
+      text-align: center;
+    }
+
+    .fig-wrap img {
+      max-width: 100%;
+      border-radius: 6px;
+      border: 1px solid var(--rule);
+      display: inline-block;
+    }
+
+    .fig-caption {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 10px;
+      line-height: 1.55;
+      text-align: left;
+    }
+
+    .fig-caption strong {
+      color: var(--text);
+    }
+
+    /* ── Grid of figures ── */
+    .fig-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin: 28px 0;
+    }
+
+    .fig-grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin: 28px 0;
+    }
+
+    @media (max-width: 640px) {
+      .fig-grid-2 { grid-template-columns: 1fr; }
+      .fig-grid-4 { grid-template-columns: 1fr 1fr; }
+    }
+
+    /* ── Table ── */
+    .table-wrap {
+      overflow-x: auto;
+      margin: 24px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+      font-family: var(--font-body);
+    }
+
+    thead tr {
+      border-bottom: 2px solid var(--accent);
+    }
+
+    th {
+      padding: 8px 10px;
+      text-align: center;
+      font-weight: 700;
+      color: var(--accent);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 7px 10px;
+      text-align: center;
+      color: var(--text);
+      border-bottom: 1px solid #ebe8e1;
+      white-space: nowrap;
+    }
+
+    tr.ours td { font-weight: normal; background: #eaf2fb; }
+    tr.ours td.best { font-weight: 700; }
+    td.best { font-weight: 700; }
+    td.second { text-decoration: underline; }
+
+    /* ── BibTeX ── */
+    .bibtex-block {
+      background: #f1ede6;
+      border: 1px solid var(--rule);
+      border-left: 4px solid var(--accent);
+      border-radius: 6px;
+      padding: 20px 24px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.82rem;
+      line-height: 1.6;
+      overflow-x: auto;
+      white-space: pre;
+      color: #2c2c2c;
+    }
+
+    /* ── Footer ── */
+    footer {
+      background: var(--surface);
+      border-top: 1px solid var(--rule);
+      padding: 28px 0;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    footer a { color: var(--accent-light); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    /* ── Divider rule ── */
+    hr.section-rule {
+      border: none;
+      border-top: 1px solid var(--rule);
+      margin: 32px 0;
+    }
+
+    /* ── Subsection heading ── */
+    .subsection-title {
+      font-family: var(--font-display);
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: var(--text);
+      margin: 32px 0 12px;
+      letter-spacing: -0.01em;
+    }
+
+    /* label row for image strips */
+    .label-row {
+      display: flex;
+      gap: 6px;
+      margin-top: 5px;
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-align: center;
+    }
+    .label-row span { flex: 1; }
+
+    /* Strip image (full-width, single row) */
+    .strip-img {
+      width: 100%;
+      border-radius: 4px;
+      border: 1px solid var(--rule);
+      display: block;
+    }
+
+    /* app images */
+    .showcase-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      margin: 24px 0;
+    }
+
+    .showcase-card {
+      overflow: hidden;
+      border-radius: 8px;
+      border: 1px solid var(--rule);
+      background: var(--surface);
+      box-shadow: 0 4px 16px rgba(10,10,10,0.06);
+    }
+
+    .showcase-card img {
+      width: 100%;
+      aspect-ratio: 3 / 4;
+      object-fit: cover;
+      display: block;
+    }
+
+    .showcase-card-label {
+      padding: 8px 10px;
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-align: center;
+    }
+
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════ HERO ══ -->
+<div class="hero">
+  <div class="container">
+    <div class="venue-badge">FG 2026 &mdash; International Conference on Automatic Face and Gesture Recognition</div>
+
+    <h1 class="paper-title">NullFace: Training-Free Localized Face Anonymization</h1>
+
+    <p class="authors">
+      <a href="https://hanweikung.github.io" target="_blank">Han-Wei Kung</a><sup>1</sup>,&ensp;
+      <a href="https://scholar.google.com/citations?user=5QWyHT4AAAAJ&hl=en" target="_blank">Tuomas Varanka</a><sup>2</sup>,&ensp;
+      <a href="https://scholar.google.com/citations?user=AdEsZwsAAAAJ&hl=en" target="_blank">Terence Sim</a><sup>3</sup>,&ensp;
+      <a href="https://scholar.google.com/citations?user=stFCYOAAAAAJ&hl=en" target="_blank">Nicu Sebe</a><sup>1</sup>
+    </p>
+
+    <p class="affiliations">
+      <sup>1</sup>University of Trento, Italy &ensp;&bull;&ensp;
+      <sup>2</sup>University of Oulu, Finland &ensp;&bull;&ensp;
+      <sup>3</sup>National University of Singapore, Singapore
+    </p>
+
+    <div class="links">
+      <a class="btn" href="https://github.com/hanweikung/nullface" target="_blank">
+        <!-- GitHub icon -->
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.603-3.369-1.342-3.369-1.342-.454-1.154-1.11-1.461-1.11-1.461-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844a9.59 9.59 0 012.504.337c1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.337 4.687-4.565 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>
+        Code
+      </a>
+      <a class="btn" href="https://arxiv.org/abs/2503.08478" target="_blank">
+        <!-- arXiv icon -->
+        <i class="ai ai-arxiv"></i>
+        arXiv
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ TEASER ══ -->
+<div class="teaser">
+  <div class="container">
+
+    <div class="teaser-cols">
+
+      <!-- Original -->
+      <div class="teaser-group" style="flex: 1">
+        <div class="teaser-group-label">Original</div>
+        <div class="teaser-images">
+          <img src="assets/images/tzer/cele/15169-orig.jpg" alt="Original face 1" />
+        </div>
+        <div class="teaser-images" style="margin-top:6px">
+          <img src="assets/images/tzer/cele/27144-orig.jpg" alt="Original face 2" />
+        </div>
+      </div>
+
+      <!-- Full facial anonymization -->
+      <div class="teaser-group" style="flex: 2">
+        <div class="teaser-group-label">Full facial anonymization</div>
+        <div class="teaser-images">
+          <img src="assets/images/tzer/cele/15169-ipnt.jpg" alt="Inpainting 1" />
+          <img src="assets/images/tzer/cele/15169-anon.jpg" alt="Ours 1" />
+        </div>
+        <div class="teaser-images" style="margin-top:6px">
+          <img src="assets/images/tzer/cele/27144-ipnt.jpg" alt="Inpainting 2" />
+          <img src="assets/images/tzer/cele/27144-anon.jpg" alt="Ours 2" />
+        </div>
+        <div class="sub-labels">
+          <span>Inpainting</span>
+          <span><strong>Ours</strong></span>
+        </div>
+      </div>
+
+      <!-- Localized -->
+      <div class="teaser-group" style="flex: 3">
+        <div class="teaser-group-label">Localized facial anonymization</div>
+        <div class="teaser-images">
+          <img src="assets/images/tzer/cele/15169-eyes.jpg" alt="Keep eyes 1" />
+          <img src="assets/images/tzer/cele/15169-nose.jpg" alt="Keep nose 1" />
+          <img src="assets/images/tzer/cele/15169-lips.jpg" alt="Keep mouth 1" />
+        </div>
+        <div class="teaser-images" style="margin-top:6px">
+          <img src="assets/images/tzer/cele/27144-eyes.jpg" alt="Keep eyes 2" />
+          <img src="assets/images/tzer/cele/27144-nose.jpg" alt="Keep nose 2" />
+          <img src="assets/images/tzer/cele/27144-lips.jpg" alt="Keep mouth 2" />
+        </div>
+        <div class="sub-labels">
+          <span>Keep eyes</span>
+          <span>Keep nose</span>
+          <span>Keep mouth</span>
+        </div>
+      </div>
+
+    </div>
+
+    <p class="teaser-caption">
+      Our method obscures identity while preserving attributes such as gaze, expressions, and head pose
+      (in contrast to Stable Diffusion Inpainting) and enables selective anonymization of specific facial regions.
+    </p>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════ ABSTRACT ══ -->
+<section>
+  <div class="container">
+    <h2 class="section-title">Abstract</h2>
+    <p>
+      Privacy concerns around ever increasing number of cameras are increasing in today's digital age.
+      Although existing anonymization methods are able to obscure identity information, they often struggle
+      to preserve the utility of the images. In this work, we introduce a training-free method for face
+      anonymization that preserves key non-identity-related attributes. Our approach utilizes a pre-trained
+      text-to-image diffusion model without requiring optimization or training. It begins by inverting the
+      input image to recover its initial noise. The noise is then denoised through an identity-conditioned
+      diffusion process, where modified identity embeddings ensure the anonymized face is distinct from the
+      original identity. Our approach also supports localized anonymization, giving users control over which
+      facial regions are anonymized or kept intact. Comprehensive evaluations against state-of-the-art
+      methods show our approach excels in anonymization, attribute preservation, and image quality. Its
+      flexibility, robustness, and practicality make it well-suited for real-world applications.
+      Code and data can be found at
+      <a href="https://github.com/hanweikung/nullface" target="_blank" style="color:var(--accent-light)">github.com/hanweikung/nullface</a>.
+    </p>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════ METHOD ══ -->
+<section>
+  <div class="container">
+    <h2 class="section-title">Method</h2>
+    <p>
+      Our anonymization framework integrates diffusion model inversion, a dual-path denoising structure,
+      and modified face embeddings. Given a facial image, we perform DDPM inversion to retrieve the initial
+      noise map <em>x<sub>T</sub></em> and a sequence of noise maps {<em>z<sub>t</sub></em>}. Face embeddings
+      extracted via a face recognition model are negated with a hyperparameter &lambda;<sub>id</sub>, creating
+      negative identity guides that steer generation away from the original identity during denoising.
+    </p>
+    <p>
+      The denoising combines conditional and unconditional paths: the conditional path uses negated identity
+      embeddings to obscure identifying features, while the unconditional path preserves non-identifying
+      attributes. Outputs are merged via classifier-free guidance. For localized control, segmentation maps
+      selectively anonymize specific facial regions while preserving others.
+    </p>
+
+    <div class="fig-wrap">
+      <img src="assets/images/schm/schematic.svg" alt="Pipeline schematic" style="width:100%; background:#fff; padding:12px;" />
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════ EXPERIMENTS ══ -->
+<section>
+  <div class="container">
+    <h2 class="section-title">Experiments</h2>
+
+    <!-- Controlling Image Alignment -->
+    <h3 class="subsection-title">Controlling Image Alignment via T<sub>skip</sub></h3>
+    <p>
+      Increasing <em>T<sub>skip</sub></em> makes the generated face align more closely with the original image structure and pose.
+    </p>
+
+    <div class="fig-wrap">
+      <img class="strip-img" src="assets/images/skip/cele/16585-16585.jpg" alt="T_skip effect CelebA" />
+      <img class="strip-img" src="assets/images/skip/ffhq/26169-26169.jpg" alt="T_skip effect FFHQ" style="margin-top:8px" />
+      <div class="label-row" style="font-size:0.8rem; justify-content:space-between; padding:0 4px;">
+        <span>T<sub>skip</sub>=0</span>
+        <span>T<sub>skip</sub>=29</span>
+        <span>T<sub>skip</sub>=59</span>
+        <span>T<sub>skip</sub>=89</span>
+        <span>Original</span>
+      </div>
+
+    </div>
+
+    <!-- Identity Change -->
+    <h3 class="subsection-title">Identity Change with Anonymization Parameter &lambda;<sub>id</sub></h3>
+    <p>
+      Increasing &lambda;<sub>id</sub> controls how far the anonymized identity drifts from the source.
+    </p>
+
+    <div class="fig-wrap">
+      <img class="strip-img" src="assets/images/embd/cele/22105-22105.jpg" alt="Lambda_id effect CelebA" />
+      <img class="strip-img" src="assets/images/embd/ffhq/29105-29105.jpg" alt="Lambda_id effect FFHQ" style="margin-top:8px" />
+      <div class="label-row" style="font-size:0.8rem; justify-content:space-between; padding:0 4px;">
+        <span>Original</span>
+        <span>&lambda;<sub>id</sub>=0.0</span>
+        <span>&lambda;<sub>id</sub>=0.33</span>
+        <span>&lambda;<sub>id</sub>=0.67</span>
+        <span>&lambda;<sub>id</sub>=1.0</span>
+      </div>
+    </div>
+
+    <!-- Guidance Scale -->
+    <h3 class="subsection-title">Effect of Guidance Scale &lambda;<sub>cfg</sub></h3>
+    <p>
+      Higher guidance scale values yield anonymized identities that are more distinct from the originals.
+      However, excessive guidance reduces photorealism.
+    </p>
+
+    <div class="fig-wrap">
+      <img class="strip-img" src="assets/images/cfg/cele/16981-16981.jpg" alt="cfg scale CelebA" />
+      <img class="strip-img" src="assets/images/cfg/ffhq/10481-10481.jpg" alt="cfg scale FFHQ" style="margin-top:8px" />
+      <div class="label-row" style="font-size:0.8rem; justify-content:space-between; padding:0 4px;">
+        <span>Original</span>
+        <span>&lambda;<sub>cfg</sub>=5</span>
+        <span>&lambda;<sub>cfg</sub>=10</span>
+        <span>&lambda;<sub>cfg</sub>=15</span>
+        <span>&lambda;<sub>cfg</sub>=20</span>
+      </div>
+    </div>
+
+    <!-- Segmentation masks -->
+    <h3 class="subsection-title">Localized Anonymization via Segmentation Masks</h3>
+    <p>
+      Segmentation masks make it possible to anonymize the full face or keep specific regions visible, such as the eyes, nose, or mouth.
+    </p>
+
+    <div class="fig-wrap">
+      <img class="strip-img" src="assets/images/mask/cele/00080-00080.jpg" alt="Mask CelebA" />
+      <img class="strip-img" src="assets/images/mask/ffhq/54191-54191.jpg" alt="Mask FFHQ" style="margin-top:8px" />
+      <div class="label-row" style="font-size:0.8rem; justify-content:space-between; padding:0 4px;">
+        <span>Original</span>
+        <span>Change whole face</span>
+        <span>Keep eyes</span>
+        <span>Keep nose</span>
+        <span>Keep mouth</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════ COMPARISON ══ -->
+<section>
+  <div class="container">
+    <h2 class="section-title">Comparison with Baselines</h2>
+
+    <!-- Quantitative table -->
+    <h3 class="subsection-title">Quantitative Results</h3>
+
+    <p>
+      Quantitative results on CelebA-HQ (CHQ) and FFHQ (FHQ).
+      Best results are <strong>bold</strong>, second-best are <span style="text-decoration:underline">underlined</span>.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th rowspan="3">Method</th>
+            <th colspan="4">Re-ID (%) &darr;</th>
+            <th colspan="6">Attribute Distance &darr;</th>
+            <th colspan="2">Image Quality &darr;</th>
+          </tr>
+          <tr>
+            <th colspan="2">AdaFace</th>
+            <th colspan="2">FaceNet</th>
+            <th colspan="2">Expression</th>
+            <th colspan="2">Gaze</th>
+            <th colspan="2">Pose</th>
+            <th colspan="2">FID</th>
+          </tr>
+          <tr>
+            <th>CHQ</th><th>FHQ</th>
+            <th>CHQ</th><th>FHQ</th>
+            <th>CHQ</th><th>FHQ</th>
+            <th>CHQ</th><th>FHQ</th>
+            <th>CHQ</th><th>FHQ</th>
+            <th>CHQ</th><th>FHQ</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="ours">
+            <td>Ours</td>
+            <td class="second">0.208</td><td class="best">0.343</td>
+            <td class="second">0.289</td><td class="second">0.383</td>
+            <td>10.034</td><td class="second">9.852</td>
+            <td class="second">0.165</td><td class="second">0.186</td>
+            <td class="best">0.053</td><td class="second">0.056</td>
+            <td class="second">8.223</td><td class="best">8.779</td>
+          </tr>
+          <tr>
+            <td>FAMS</td>
+            <td>3.131</td><td>14.152</td>
+            <td>0.866</td><td>5.570</td>
+            <td>10.001</td><td class="best">8.823</td>
+            <td class="best">0.164</td><td class="best">0.176</td>
+            <td class="best">0.053</td><td class="best">0.047</td>
+            <td>17.128</td><td>11.215</td>
+          </tr>
+          <tr>
+            <td>FALCO</td>
+            <td class="best">0.104</td><td>—</td>
+            <td class="best">0.100</td><td>—</td>
+            <td>10.208</td><td>—</td>
+            <td>0.277</td><td>—</td>
+            <td>0.088</td><td>—</td>
+            <td>39.168</td><td>—</td>
+          </tr>
+          <tr>
+            <td>RiDDLE</td>
+            <td>—</td><td class="second">0.510</td>
+            <td>—</td><td class="best">0.042</td>
+            <td>—</td><td>10.038</td>
+            <td>—</td><td>0.215</td>
+            <td>—</td><td>0.081</td>
+            <td>—</td><td>69.259</td>
+          </tr>
+          <tr>
+            <td>LDFA</td>
+            <td>10.284</td><td>11.152</td>
+            <td>4.275</td><td>4.925</td>
+            <td class="best">8.647</td><td>10.387</td>
+            <td>0.260</td><td>0.353</td>
+            <td>0.092</td><td>0.113</td>
+            <td class="best">8.058</td><td class="second">9.946</td>
+          </tr>
+          <tr>
+            <td>DP2</td>
+            <td>0.835</td><td>1.881</td>
+            <td>0.722</td><td>1.186</td>
+            <td class="second">9.912</td><td>10.183</td>
+            <td>0.262</td><td>0.299</td>
+            <td>0.161</td><td>0.163</td>
+            <td>16.935</td><td>18.632</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Privacy-utility tradeoff plots -->
+    <h3 class="subsection-title">Privacy–Utility Trade-off</h3>
+    <p>
+      Privacy–Utility Trade-off Evaluation. The green gradient highlights the optimal zone (lower-left)
+      where both privacy (low Re-ID) and utility (low metric values) are achieved. Our method offers
+      the best balance across all metrics.
+    </p>
+    <div class="fig-grid-4">
+      <div><img src="assets/images/plot/trade_offs/ffhq/reid_expression_adaface_plot.svg" alt="Expression tradeoff FFHQ" style="width:100%;background:#fff;padding:6px;border:1px solid var(--rule);border-radius:4px;" /></div>
+      <div><img src="assets/images/plot/trade_offs/ffhq/reid_gaze_adaface_plot.svg" alt="Gaze tradeoff FFHQ" style="width:100%;background:#fff;padding:6px;border:1px solid var(--rule);border-radius:4px;" /></div>
+      <div><img src="assets/images/plot/trade_offs/ffhq/reid_pose_adaface_plot.svg" alt="Pose tradeoff FFHQ" style="width:100%;background:#fff;padding:6px;border:1px solid var(--rule);border-radius:4px;" /></div>
+      <div><img src="assets/images/plot/trade_offs/ffhq/reid_fid_adaface_plot.svg" alt="FID tradeoff FFHQ" style="width:100%;background:#fff;padding:6px;border:1px solid var(--rule);border-radius:4px;" /></div>
+    </div>
+    <div class="fig-grid-4">
+      <div><img src="assets/images/plot/trade_offs/celeba/reid_expression_adaface_plot.svg" alt="Expression tradeoff CelebA" style="width:100%;background:#fff;padding:6px;border:1px solid var(--rule);border-radius:4px;" /></div>
+      <div><img src="assets/images/plot/trade_offs/celeba/reid_gaze_adaface_plot.svg" alt="Gaze tradeoff CelebA" style="width:100%;background:#fff;padding:6px;border:1px solid var(--rule);border-radius:4px;" /></div>
+      <div><img src="assets/images/plot/trade_offs/celeba/reid_pose_adaface_plot.svg" alt="Pose tradeoff CelebA" style="width:100%;background:#fff;padding:6px;border:1px solid var(--rule);border-radius:4px;" /></div>
+      <div><img src="assets/images/plot/trade_offs/celeba/reid_fid_adaface_plot.svg" alt="FID tradeoff CelebA" style="width:100%;background:#fff;padding:6px;border:1px solid var(--rule);border-radius:4px;" /></div>
+    </div>
+    <div style="text-align:center; margin-top:8px;">
+      <img src="assets/images/plot/trade_offs/legends.svg" alt="Legend" style="max-width:100%;background:#fff;padding:6px;border:1px solid var(--rule);border-radius:4px;" />
+    </div>
+
+
+    <!-- Qualitative -->
+    <h3 class="subsection-title">Qualitative Results — CelebA-HQ</h3>
+    <div class="fig-wrap">
+      <img class="strip-img" src="assets/images/comp/cele/01271-01271.jpg" alt="Comparison CelebA 1" />
+      <img class="strip-img" src="assets/images/comp/cele/12737-12737.jpg" alt="Comparison CelebA 2" style="margin-top:6px" />
+      <img class="strip-img" src="assets/images/comp/cele/16429-16429.jpg" alt="Comparison CelebA 3" style="margin-top:6px" />
+      <img class="strip-img" src="assets/images/comp/cele/26483-26483.jpg" alt="Comparison CelebA 4" style="margin-top:6px" />
+      <div class="label-row" style="font-size:0.8rem; justify-content:space-between; padding:0 4px;">
+        <span>Original</span>
+        <span><strong>Ours</strong></span>
+        <span>FAMS</span>
+        <span>FALCO</span>
+        <span>LDFA</span>
+        <span>DP2</span>
+      </div>
+    </div>
+
+    <h3 class="subsection-title">Qualitative Results — FFHQ</h3>
+    <div class="fig-wrap">
+      <img class="strip-img" src="assets/images/comp/ffhq/04087-04087.jpg" alt="Comparison FFHQ 1" />
+      <img class="strip-img" src="assets/images/comp/ffhq/24392-24392.jpg" alt="Comparison FFHQ 2" style="margin-top:6px" />
+      <img class="strip-img" src="assets/images/comp/ffhq/25410-25410.jpg" alt="Comparison FFHQ 3" style="margin-top:6px" />
+      <img class="strip-img" src="assets/images/comp/ffhq/27995-27995.jpg" alt="Comparison FFHQ 4" style="margin-top:6px" />
+      <div class="label-row" style="font-size:0.8rem; justify-content:space-between; padding:0 4px;">
+        <span>Original</span>
+        <span><strong>Ours</strong></span>
+        <span>FAMS</span>
+        <span>RiDDLE</span>
+        <span>LDFA</span>
+        <span>DP2</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════ APPLICATIONS ══ -->
+<section>
+  <div class="container">
+    <h2 class="section-title">Localized Anonymization Applications</h2>
+    <p>
+      Localized anonymization enables practitioners to share case studies while maintaining patient
+      confidentiality. The example below shows facial identity being anonymized while preserving
+      dermatological symptoms (acne on the cheeks).
+    </p>
+
+    <div class="showcase-grid">
+      <article class="showcase-card">
+        <img src="assets/images/app/orig.jpg" alt="Application original" />
+        <div class="showcase-card-label">Original</div>
+      </article>
+      <article class="showcase-card">
+        <img src="assets/images/app/mask.jpg" alt="Application mask" />
+        <div class="showcase-card-label">Mask (keep cheek)</div>
+      </article>
+      <article class="showcase-card">
+        <img src="assets/images/app/anon.jpg" alt="Application anonymized" />
+        <div class="showcase-card-label">Anonymized</div>
+      </article>
+    </div>
+
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════ BIBTEX ══ -->
+<section>
+  <div class="container">
+    <h2 class="section-title">BibTeX</h2>
+    <div class="bibtex-block">@inproceedings{kung2026nullface,
+  title     = {NullFace: Training-Free Localized Face Anonymization},
+  author    = {Kung, Han-Wei and Varanka, Tuomas and Sim, Terence and Sebe, Nicu},
+  booktitle = {2026 IEEE 20th International Conference on Automatic Face and Gesture Recognition (FG)},
+  year      = {2026}
+}</div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════ FOOTER ══ -->
+<footer>
+  <div class="container">
+    <p>
+      The <a href="https://github.com/hanweikung/nullface/tree/gh-pages" target="_blank">source code</a>
+      for this website is available under the
+      <a href="http://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="license">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+      Feel free to use and adapt it for your own projects.
+    </p>
+    <p style="margin-top:8px;">
+      Website template inspired by <a href="https://nerfies.github.io" target="_blank">Nerfies</a>.
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>
