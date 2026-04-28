@@ -69,7 +69,32 @@
       border: 1px solid #aed6f1;
       border-radius: 4px;
       padding: 4px 12px;
+      margin-bottom: 10px;
+    }
+
+    .oral-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-body);
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: #7a4a00;
+      background: #fff8e6;
+      border: 1px solid #e8c96b;
+      border-radius: 4px;
+      padding: 4px 12px;
       margin-bottom: 20px;
+      margin-left: 8px;
+    }
+
+    .oral-badge svg {
+      width: 13px;
+      height: 13px;
+      flex-shrink: 0;
+      color: #c9960a;
     }
 
     .paper-title {
@@ -423,7 +448,10 @@
 <!-- ══════════════════════════════════════════════ HERO ══ -->
 <div class="hero">
   <div class="container">
-    <div class="venue-badge">FG 2026 &mdash; International Conference on Automatic Face and Gesture Recognition</div>
+    <div style="display:flex; flex-direction:column; align-items:center; gap:20px; margin-bottom:20px;">
+      <div class="venue-badge" style="margin-bottom:0;">FG 2026 &mdash; International Conference on Automatic Face and Gesture Recognition</div>
+      <span class="oral-badge" style="margin-bottom:0; margin-left:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Oral Presentation</span>
+    </div>
 
     <h1 class="paper-title">NullFace: Training-Free Localized Face Anonymization</h1>
 
