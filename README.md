@@ -1,8 +1,18 @@
-# NullFace: Training-Free Localized Face Anonymization
+<div align="center">
 
-[arXiv](http://arxiv.org/abs/2503.08478)
+<h1>NullFace: Training-Free Localized Face Anonymization</h1>
 
-![](assets/teaser.svg)
+[Han-Wei Kung](https://hanweikung.github.io)<sup>1</sup> · [Tuomas Varanka](https://scholar.google.com/citations?user=5QWyHT4AAAAJ&hl=en)<sup>2</sup> · [Terence Sim](https://scholar.google.com/citations?user=AdEsZwsAAAAJ&hl=en)<sup>3</sup> · [Nicu Sebe](https://scholar.google.com/citations?user=stFCYOAAAAAJ&hl=en)<sup>1</sup>
+
+<sup>1</sup> University of Trento, Italy | <sup>2</sup> University of Oulu, Finland | <sup>3</sup> National University of Singapore, Singapore
+
+[![arXiv](https://img.shields.io/badge/arXiv-2503.08478-b31b1b?logo=arxiv&logoColor=white)](http://arxiv.org/abs/2503.08478) [![Project Page](https://img.shields.io/badge/Project-Page-blue?logo=firefox&logoColor=white)](https://hanweikung.github.io/nullface/) [![FG 2026](https://img.shields.io/badge/FG%202026-Oral-gold)](https://fg2026.ieee-biometrics.org/)
+
+Accepted for **oral presentation** at [IEEE FG 2026](https://fg2026.ieee-biometrics.org/).
+
+<img src="assets/teaser.svg" width="100%">
+
+</div>
 
 Our method obscures identity while preserving attributes such as gaze, expressions, and head pose (in contrast to [Stable Diffusion Inpainting](https://github.com/CompVis/latent-diffusion)) and enables selective anonymization of specific facial regions.
 
